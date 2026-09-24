@@ -6,26 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProductStock extends Model
+class ProductImage extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'product_id',
-        'branch_id',
-        'quantity',
-        'minimum_quantity',
-        'last_updated',
+        'image_path',
+        'is_primary',
+        'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
-            'product_id' => 'integer',
-            'branch_id' => 'integer',
-            'quantity' => 'integer',
-            'minimum_quantity' => 'integer',
-            'last_updated' => 'datetime',
+            'is_primary' => 'boolean',
+            'sort_order' => 'integer',
         ];
     }
 

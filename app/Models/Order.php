@@ -13,11 +13,32 @@ class Order extends Model
     use BelongsToCompany;
     use HasFactory;
 
-    protected $fillable = ['company_id', 'customer_id', 'number', 'status', 'currency', 'subtotal', 'total'];
+    protected $fillable = [
+        'company_id',
+        'customer_id',
+        'number',
+        'status',
+        'currency',
+        'payment_method',
+        'payment_status',
+        'shipping_zone',
+        'shipping_cost',
+        'delivery_status',
+        'subtotal',
+        'tax_rate',
+        'tax_amount',
+        'total',
+    ];
 
     protected function casts(): array
     {
-        return ['subtotal' => 'decimal:2', 'total' => 'decimal:2'];
+        return [
+            'subtotal' => 'decimal:2',
+            'shipping_cost' => 'decimal:2',
+            'tax_rate' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'total' => 'decimal:2',
+        ];
     }
 
     public function company(): BelongsTo

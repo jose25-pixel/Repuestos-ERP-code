@@ -66,4 +66,51 @@ class CheckoutTest extends TestCase
             DB::rollBack();
         }
     }
+
+    public function test_checkout_values_shipping_zone_and_cash_on_delivery_flow(): void
+    {
+        DB::beginTransaction();
+
+        try {
+            $suffix = Str::uuid()->toString();
+            $company = Company::query()->create([
+                'name' => "Empresa envío {$suffix}",
+                'country' => 'SV',
+                'currency' => 'USD',
+            ]);
+            $product = Product::query()->create([
+                'company_id' => $company->id,
+                'sku' => "SKU-ENV-{$suffix}",
+                'name' => 'Motor de prueba',
+                'cost' => 8,
+                'price' => 20,
+                'is_active' => true,
+            ]);
+            ProductStock::query()->create([
+                'product_id' => $product->id,
+                'quantity' => 10,
+                'minimum_quantity' => 1,
+            ]);
+
+            $this->postJson(route('checkout.store'), [
+                'customer' => [
+                    'name' => 'Cliente con envío',
+                    'email' => "envio-{$suffix}@example.test",
+                    'phone' => '7000-0000',
+                ],
+                'payment_method' => 'cash_on_delivery',
+                'shipping_zone' => 'la_union',
+                'shipping_cost' => 6,
+                'items' => [['id' => $product->id, 'quantity' => 6]],
+            ])->assertCreated();
+
+            $this->assertDatabaseHas('orders', [
+                'payment_method' => 'cash_on_delivery',
+                'shipping_zone' => 'la_union',
+                'shipping_cost' => 6.00,
+            ]);
+        } finally {
+            DB::rollBack();
+        }
+    }
 }

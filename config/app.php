@@ -83,6 +83,7 @@ return [
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+        'sales_tax_rate' => (float) env('SALES_TAX_RATE', 13),
 
     /*
     |--------------------------------------------------------------------------

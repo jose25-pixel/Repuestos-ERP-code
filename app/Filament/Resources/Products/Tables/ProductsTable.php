@@ -27,13 +27,22 @@ class ProductsTable
                     ->searchable(),
                 TextColumn::make('name')
                     ->searchable(),
+                TextColumn::make('brand')
+                    ->label('Marca')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('cost')
                     ->label('Costo')
                     ->money('USD')
                     ->sortable(),
                 TextColumn::make('price')
-                    ->label('Precio')
+                    ->label('Precio de venta')
                     ->money('USD')
+                    ->sortable(),
+                TextColumn::make('regular_price')
+                    ->label('Precio normal')
+                    ->money('USD')
+                    ->placeholder('Sin promoción')
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->label('Activo')
@@ -55,7 +64,8 @@ class ProductsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => ! auth()->user()?->hasRole('vendedor')),
                 ]),
             ]);
     }

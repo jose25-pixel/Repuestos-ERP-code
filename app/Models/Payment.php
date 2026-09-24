@@ -10,7 +10,7 @@ class Payment extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['order_id', 'method', 'status', 'amount', 'currency', 'reference'];
+    protected $fillable = ['order_id', 'method', 'status', 'amount', 'currency', 'reference', 'provider_reference', 'notes'];
 
     protected function casts(): array
     {

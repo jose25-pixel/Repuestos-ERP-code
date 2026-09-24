@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Companies\Schemas;
 
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -13,6 +14,13 @@ class CompanyForm
     {
         return $schema
             ->components([
+                FileUpload::make('logo_path')
+                    ->label('Logo de la empresa')
+                    ->disk('public')
+                    ->directory('companies')
+                    ->image()
+                    ->maxSize(2048)
+                    ->helperText('Sube el logo principal de la empresa para mostrarlo en el menú y la tienda.'),
                 TextInput::make('name')
                     ->label('Nombre')
                     ->required(),
