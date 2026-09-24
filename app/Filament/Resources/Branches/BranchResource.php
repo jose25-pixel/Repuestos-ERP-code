@@ -34,6 +34,21 @@ class BranchResource extends Resource
         return BranchForm::configure($schema);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa']) ?? false;
+    }
+
     public static function table(Table $table): Table
     {
         return BranchesTable::configure($table);
@@ -44,7 +59,15 @@ class BranchResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        return $user?->isSuperAdmin() ? $query : $query->where('company_id', $user?->company_id);
+        if ($user?->isSuperAdmin()) {
+            return $query;
+        }
+
+        if (! $user?->company_id) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where('company_id', $user->company_id);
     }
 
     public static function getRelations(): array

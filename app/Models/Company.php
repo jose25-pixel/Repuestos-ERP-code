@@ -16,6 +16,7 @@ class Company extends Model
         'tax_id',
         'country',
         'currency',
+        'porcentaje_iva',
         'plan',
         'is_active',
     ];
@@ -42,6 +43,9 @@ class Company extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return [
+            'is_active' => 'boolean',
+            'porcentaje_iva' => 'decimal:2',
+        ];
     }
 }

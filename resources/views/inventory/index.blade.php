@@ -79,7 +79,7 @@
         <div class="utility">Atención a clientes · Venta de repuestos para línea blanca</div>
         <div class="header-inner">
             <a class="brand" href="{{ route('inventory.index') }}">
-                @php($companyBrand = $company ?? \App\Models\Company::query()->where('is_active', true)->orderBy('id')->first())
+                @php($companyBrand = $company ?? \App\Models\Company::query()->where('is_active', true)->latest('id')->first())
                 @if ($companyBrand && $companyBrand->logo_path)
                     <img src="{{ asset('storage/' . $companyBrand->logo_path) }}" alt="{{ $companyBrand->name }}" style="width: 64px; height: 64px; object-fit: contain; border-radius: 50%; border: 2px solid #e3e9ef; background: white; margin-right: 12px; vertical-align: middle;">
                 @else
@@ -111,7 +111,7 @@
             @else
                 <div class="grid">
                     @foreach ($products as $product)
-                        @php($quantity = $product->stock?->quantity ?? 0)
+                        @php($quantity = (int) ($product->inventarios_sum_cantidad_disponible ?? $product->inventarios->sum('cantidad_disponible')))
                         @php($hasPromotion = $product->regular_price !== null && (float) $product->regular_price > (float) $product->price)
                         <article class="product" data-product-card data-product-id="{{ $product->id }}" data-detail-url="{{ route('inventory.show', $product) }}" tabindex="0" role="link" aria-label="Ver detalles de {{ $product->name }}">
                             <button class="wishlist" type="button" aria-label="Guardar {{ $product->name }}" data-wishlist data-product-id="{{ $product->id }}">&#9825;</button>
@@ -134,7 +134,7 @@
                             @endif
                             <span class="availability {{ $quantity === 0 ? 'out' : '' }}">{{ $quantity === 0 ? 'Agotado' : 'Disponible' }}</span>
                             <p class="shipping-note">Envío desde $5.00</p>
-                            <button class="add-cart" type="button" data-add-cart data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->price }}" {{ $quantity === 0 ? 'disabled' : '' }}>Agregar al carrito</button>
+                            <button class="add-cart" type="button" data-add-cart data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->precio_venta_sugerido ?? $product->price }}" {{ $quantity === 0 ? 'disabled' : '' }}>Agregar al carrito</button>
                         </article>
                     @endforeach
                 </div>
@@ -180,7 +180,7 @@
         </div>
     </div>
     <script>
-        const cartKey = 'repuestoserp-cart';
+        const cartKey = 'repuestoserp-cart-company-{{ $company?->id ?? 0 }}';
         const wishlistKey = 'repuestoserp-wishlist';
         const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
         const wishlist = new Set(JSON.parse(localStorage.getItem(wishlistKey) || '[]').map(String));

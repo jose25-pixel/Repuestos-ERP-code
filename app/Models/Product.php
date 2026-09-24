@@ -25,6 +25,10 @@ class Product extends Model
         'images',
         'cost',
         'price',
+        'precio_venta_sugerido',
+        'precio_costo',
+        'exento_iva',
+        'activo',
         'sale_price',
         'regular_price',
         'currency',
@@ -45,12 +49,16 @@ class Product extends Model
         return [
             'cost' => 'decimal:2',
             'price' => 'decimal:2',
+            'precio_venta_sugerido' => 'decimal:2',
+            'precio_costo' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'regular_price' => 'decimal:2',
             'weight_kg' => 'decimal:2',
             'tax_included' => 'boolean',
+            'exento_iva' => 'boolean',
             'is_heavy' => 'boolean',
             'is_active' => 'boolean',
+            'activo' => 'boolean',
             'images' => 'array',
             'compatible_models' => 'array',
             'warranty_days' => 'integer',
@@ -61,6 +69,20 @@ class Product extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (self $product): void {
+            if ($product->isDirty('precio_venta_sugerido')) {
+                $product->price = $product->precio_venta_sugerido;
+            }
+
+            if ($product->isDirty('precio_costo')) {
+                $product->cost = $product->precio_costo;
+            }
+
+            if ($product->isDirty('activo')) {
+                $product->is_active = $product->activo;
+            }
+        });
+
         static::creating(function (self $product): void {
             if ($product->barcode === null) {
                 $product->barcode = sprintf('RERP-%05d-%08d', $product->company_id, $product->id);
@@ -91,6 +113,48 @@ class Product extends Model
     public function stock(): HasOne
     {
         return $this->hasOne(ProductStock::class);
+    }
+
+    public function inventarios(): HasMany
+    {
+        return $this->hasMany(Inventario::class, 'producto_id');
+    }
+
+    public function kardexMovimientos(): HasMany
+    {
+        return $this->hasMany(KardexMovimiento::class, 'producto_id');
+    }
+
+    public function precioConDesglose(?int $sucursalId = null): array
+    {
+        $precio = (float) $this->precio_venta_sugerido;
+
+        if ($sucursalId !== null) {
+            $precioLocal = $this->inventarios()
+                ->where('sucursal_id', $sucursalId)
+                ->value('precio_venta_local');
+
+            if ($precioLocal !== null) {
+                $precio = (float) $precioLocal;
+            }
+        }
+
+        if ((bool) $this->exento_iva) {
+            return [
+                'precio_con_iva' => round($precio, 2),
+                'precio_sin_iva' => round($precio, 2),
+                'iva' => 0.00,
+            ];
+        }
+
+        $porcentajeIva = (float) ($this->company?->porcentaje_iva ?? 13.00);
+        $precioSinIva = $precio / (1 + ($porcentajeIva / 100));
+
+        return [
+            'precio_con_iva' => round($precio, 2),
+            'precio_sin_iva' => round($precioSinIva, 2),
+            'iva' => round($precio - $precioSinIva, 2),
+        ];
     }
 
     public function inventoryMovements(): HasMany

@@ -28,10 +28,23 @@ class BranchForm
                 TextInput::make('establishment_code')
                     ->label('Código de establecimiento DTE')
                     ->maxLength(20),
-                TextInput::make('country')
+                Select::make('country')
                     ->label('País')
-                    ->length(2)
-                    ->uppercase()
+                    ->options([
+                        'VE' => 'Venezuela',
+                        'CO' => 'Colombia',
+                        'MX' => 'México',
+                        'SV' => 'El Salvador',
+                        'GT' => 'Guatemala',
+                        'HN' => 'Honduras',
+                        'NI' => 'Nicaragua',
+                        'CR' => 'Costa Rica',
+                        'PA' => 'Panamá',
+                        'DO' => 'República Dominicana',
+                        'US' => 'Estados Unidos',
+                        'ES' => 'España',
+                    ])
+                    ->searchable()
                     ->required(),
                 TextInput::make('city')
                     ->label('Ciudad'),

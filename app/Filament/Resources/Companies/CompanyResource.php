@@ -44,12 +44,30 @@ class CompanyResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        return $user?->isSuperAdmin() ? $query : $query->whereKey($user?->company_id);
+        if ($user?->isSuperAdmin()) {
+            return $query;
+        }
+
+        if (! $user?->company_id) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereKey($user->company_id);
     }
 
     public static function canCreate(): bool
     {
         return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
     }
 
     public static function getRelations(): array

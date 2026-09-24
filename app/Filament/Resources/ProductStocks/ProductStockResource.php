@@ -34,6 +34,16 @@ class ProductStockResource extends Resource
         return ProductStockForm::configure($schema);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal', 'vendedor']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
     public static function table(Table $table): Table
     {
         return ProductStocksTable::configure($table);

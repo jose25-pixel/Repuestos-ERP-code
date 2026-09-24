@@ -34,6 +34,16 @@ class CategoryResource extends Resource
         return CategoryForm::configure($schema);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
     public static function table(Table $table): Table
     {
         return CategoriesTable::configure($table);

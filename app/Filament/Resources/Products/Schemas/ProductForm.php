@@ -2,11 +2,15 @@
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Models\Branch;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class ProductForm
@@ -23,6 +27,21 @@ class ProductForm
                     ->default(fn () => auth()->user()?->company_id)
                     ->disabled(fn () => ! auth()->user()?->isSuperAdmin())
                     ->dehydrated()
+                    ->live()
+                    ->afterStateUpdated(function (?int $state, Set $set): void {
+                        $set('stock_inicial', Branch::query()
+                            ->where('company_id', $state)
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->get()
+                            ->map(fn (Branch $branch): array => [
+                                'sucursal_id' => $branch->id,
+                                'sucursal_nombre' => $branch->name,
+                                'cantidad_inicial' => 0,
+                                'cantidad_minima' => 0,
+                            ])
+                            ->all());
+                    })
                     ->required(),
                 Select::make('category_id')
                     ->label('Categoría')
@@ -76,18 +95,23 @@ class ProductForm
                     ->label('Producto pesado')
                     ->default(fn ($record) => $record?->weight_kg >= 10)
                     ->helperText('Se activa automáticamente si el peso es 10 kg o más.'),
-                TextInput::make('cost')
-                    ->label('Costo')
+                TextInput::make('precio_costo')
+                    ->label('Precio de costo')
                     ->required()
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
                     ->prefix('$'),
-                TextInput::make('price')
-                    ->label('Precio de venta')
+                TextInput::make('precio_venta_sugerido')
+                    ->label('Precio de venta sugerido (IVA incluido)')
                     ->required()
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
                     ->prefix('$'),
+                Toggle::make('exento_iva')
+                    ->label('Exento de IVA')
+                    ->default(false),
                 TextInput::make('sale_price')
                     ->label('Precio de oferta')
                     ->numeric()
@@ -107,7 +131,8 @@ class ProductForm
                     ->required(),
                 Toggle::make('tax_included')
                     ->label('Precio incluye impuesto')
-                    ->default(false),
+                    ->default(true)
+                    ->hidden(),
                 Select::make('status')
                     ->label('Estado del producto')
                     ->options([
@@ -133,6 +158,45 @@ class ProductForm
                     ->label('Activo')
                     ->default(true)
                     ->required(),
+                Repeater::make('stock_inicial')
+                    ->label('Stock inicial por sucursal')
+                    ->helperText('Ingresa cantidades solo si ya existe mercadería. Cada valor mayor que cero se registrará en el kardex como carga inicial.')
+                    ->schema([
+                        Hidden::make('sucursal_id'),
+                        TextInput::make('sucursal_nombre')
+                            ->label('Sucursal')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('cantidad_inicial')
+                            ->label('Cantidad inicial')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->default(0)
+                            ->required(),
+                        TextInput::make('cantidad_minima')
+                            ->label('Mínimo para alerta')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->default(0)
+                            ->required(),
+                    ])
+                    ->columns(3)
+                    ->default(fn (): array => Branch::query()
+                        ->where('company_id', auth()->user()?->company_id)
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get()
+                        ->map(fn (Branch $branch): array => [
+                            'sucursal_id' => $branch->id,
+                            'sucursal_nombre' => $branch->name,
+                            'cantidad_inicial' => 0,
+                            'cantidad_minima' => 0,
+                        ])
+                        ->all())
+                    ->visible(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrated(false),
             ]);
     }
 }

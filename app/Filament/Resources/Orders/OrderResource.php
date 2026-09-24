@@ -3,9 +3,12 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\Pages\CreateOrder;
+use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Models\Order;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +30,21 @@ class OrderResource extends Resource
         return \App\Filament\Resources\Orders\Tables\OrdersTable::configure($table);
     }
 
+    public static function form(Schema $schema): Schema
+    {
+        return OrderForm::configure($schema);
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal', 'vendedor', 'tecnico']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -39,11 +57,12 @@ class OrderResource extends Resource
     {
         return [
             'index' => ListOrders::route('/'),
+            'create' => CreateOrder::route('/create'),
         ];
     }
 
     public static function canCreate(): bool
     {
-        return false;
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal', 'vendedor']) ?? false;
     }
 }

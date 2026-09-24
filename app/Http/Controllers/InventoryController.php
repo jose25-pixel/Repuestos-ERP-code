@@ -16,12 +16,15 @@ class InventoryController extends Controller
         $categoryId = $request->integer('category');
         $company = Company::query()
             ->where('is_active', true)
-            ->orderBy('id')
+            ->when($request->filled('empresa'), fn ($query) => $query->whereRaw('LOWER(name) = ?', [strtolower((string) $request->query('empresa'))]))
+            ->latest('id')
             ->first();
 
         $products = Product::query()
-            ->with(['category', 'company', 'stock'])
+            ->with(['category', 'company', 'stock', 'inventarios'])
+            ->withSum('inventarios', 'cantidad_disponible')
             ->where('is_active', true)
+            ->whereHas('inventarios', fn ($query) => $query->where('cantidad_disponible', '>', 0))
             ->when($company, fn ($query) => $query->where('company_id', $company->id))
             ->when($search !== '', fn ($query) => $query->where(fn ($productQuery) => $productQuery
                 ->where('name', 'ilike', "%{$search}%")

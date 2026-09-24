@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Customer;
-use App\Models\InventoryMovement;
+use App\Models\Inventario;
 use App\Models\Order;
 use App\Models\Product;
-use App\Support\ShippingCalculator;
+use App\Services\InventarioService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 
 class CheckoutController extends Controller
@@ -58,7 +60,7 @@ class CheckoutController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
         ]);
 
-        $shippingCost = (float) ($validated['shipping_cost'] ?? 0);
+        $shippingCost = 5.00;
         $shippingZone = $validated['shipping_zone'] ?? strtolower($validated['customer']['department'] ?? 'local');
 
         $order = DB::transaction(function () use ($validated, $shippingZone, $shippingCost): Order {
@@ -80,26 +82,38 @@ class CheckoutController extends Controller
                 abort(422, 'Una orden solo puede contener productos de una empresa.');
             }
 
-            $totalWeight = $products->sum(fn (Product $product) => (float) ($product->weight_kg ?? 0) * ($validated['items'][array_search($product->id, array_column($validated['items'], 'id'))]['quantity'] ?? 1));
-            $isHeavy = $products->contains(fn (Product $product) => (bool) $product->is_heavy);
-            $calculatedShipping = ShippingCalculator::calculate(count($validated['items']), $totalWeight, $validated['customer']['department'], $isHeavy);
+            $dispatchBranch = Branch::query()
+                ->where('company_id', $companyId)
+                ->where('is_active', true)
+                ->get()
+                ->first(fn (Branch $branch): bool => $items->every(fn (array $item): bool =>
+                    (int) Inventario::query()
+                        ->where('producto_id', $item['id'])
+                        ->where('sucursal_id', $branch->id)
+                        ->value('cantidad_disponible') >= (int) $item['quantity']
+                ));
 
-            $shippingCost = $calculatedShipping['cost'];
-                $taxRate = (float) config('app.sales_tax_rate', 13);
+            if ($dispatchBranch === null) {
+                abort(422, 'No existe una sucursal de despacho con stock suficiente para toda la orden.');
+            }
 
+            $company = $products->first()->company;
+            $taxRate = (float) $company->porcentaje_iva;
             $customer = Customer::query()->updateOrCreate(
                 ['email' => $validated['customer']['email']],
                 $validated['customer'],
             );
-            $subtotal = 0;
+
             $order = Order::query()->create([
                 'company_id' => $companyId,
+                'sucursal_id' => $dispatchBranch->id,
                 'customer_id' => $customer->id,
                 'number' => 'ORD-'.now()->format('YmdHis').'-'.str()->upper(str()->random(5)),
                 'status' => 'pending_payment',
-                'currency' => $products->first()->company->currency,
+                'canal' => 'online',
+                'currency' => $company->currency,
                 'payment_method' => $validated['payment_method'],
-                'payment_status' => in_array($validated['payment_method'], ['cash_on_delivery', 'qr_transfer'], true) ? 'pending' : 'pending',
+                'payment_status' => 'pending',
                 'shipping_zone' => $shippingZone,
                 'shipping_cost' => $shippingCost,
                 'delivery_status' => 'pending',
@@ -109,39 +123,50 @@ class CheckoutController extends Controller
                 'total' => 0,
             ]);
 
+            $subtotal = 0.00;
+            $taxAmount = 0.00;
+            $inventory = app(InventarioService::class);
+
             foreach ($items as $item) {
                 $product = $products->get($item['id']);
-                $lineTotal = $product->price * $item['quantity'];
+                $quantity = (int) $item['quantity'];
+                $breakdown = $product->precioConDesglose($dispatchBranch->id);
+                $lineTotal = $breakdown['precio_con_iva'] * $quantity;
                 $subtotal += $lineTotal;
+                $taxAmount += $breakdown['iva'] * $quantity;
 
                 $order->items()->create([
                     'product_id' => $product->id,
                     'product_name' => $product->name,
                     'sku' => $product->sku,
-                    'unit_price' => $product->price,
-                    'quantity' => $item['quantity'],
+                    'unit_price' => $breakdown['precio_con_iva'],
+                    'quantity' => $quantity,
                     'total' => $lineTotal,
                 ]);
 
-                InventoryMovement::query()->create([
-                    'product_id' => $product->id,
-                    'type' => InventoryMovement::TYPE_SALE,
-                    'quantity' => -$item['quantity'],
-                    'reference_type' => Order::class,
-                    'reference_id' => $order->id,
-                    'reason' => "Venta {$order->number}",
-                ]);
+                $inventory->registrarSalida(
+                    $product,
+                    $dispatchBranch,
+                    $quantity,
+                    $order->number,
+                    null,
+                    'Venta online',
+                );
             }
 
             $total = $subtotal + $shippingCost;
-            $taxAmount = round($subtotal - ($subtotal / (1 + ($taxRate / 100))), 2);
-            $order->update(['subtotal' => $subtotal, 'tax_amount' => $taxAmount, 'total' => $total]);
+            $order->update([
+                'subtotal' => $subtotal,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+            ]);
+
             $order->payments()->create([
                 'method' => $validated['payment_method'],
                 'status' => 'pending',
                 'amount' => $total,
                 'currency' => $order->currency,
-                'notes' => $shippingZone ? 'Zona de envío: '.$shippingZone : null,
+                'notes' => 'Envío online: USD 5. Zona: '.$shippingZone,
             ]);
 
             return $order;

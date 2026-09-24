@@ -33,6 +33,16 @@ class InventoryMovementResource extends Resource
         return InventoryMovementForm::configure($schema);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'dueño_empresa', 'admin_sucursal', 'vendedor', 'tecnico']) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
     public static function table(Table $table): Table
     {
         return InventoryMovementsTable::configure($table);

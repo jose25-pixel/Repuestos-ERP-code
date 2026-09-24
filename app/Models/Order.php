@@ -15,9 +15,11 @@ class Order extends Model
 
     protected $fillable = [
         'company_id',
+        'sucursal_id',
         'customer_id',
         'number',
         'status',
+        'canal',
         'currency',
         'payment_method',
         'payment_status',
@@ -44,6 +46,11 @@ class Order extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function sucursal(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'sucursal_id');
     }
 
     public function customer(): BelongsTo

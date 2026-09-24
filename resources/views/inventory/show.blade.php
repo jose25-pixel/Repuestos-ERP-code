@@ -59,7 +59,8 @@
     <main>
         <p class="crumb"><a href="{{ route('inventory.index') }}">Inicio</a> / {{ $product->name }}</p>
         @php($images = collect($product->images ?? [])->filter()->values())
-        @php($quantity = $product->stock?->quantity ?? 0)
+        @php($product->loadMissing('inventarios'))
+        @php($quantity = (int) $product->inventarios->sum('cantidad_disponible'))
         @php($hasPromotion = $product->regular_price !== null && (float) $product->regular_price > (float) $product->price)
         <section class="detail">
             <div class="gallery">
@@ -93,7 +94,7 @@
                 @endif
                 <span class="availability {{ $quantity === 0 ? 'out' : '' }}">{{ $quantity === 0 ? 'Agotado' : 'Disponible' }}</span>
                 <p class="shipping">Envío desde <strong>$5.00</strong><br><small>El costo final depende del departamento, cantidad y peso.</small></p>
-                <button class="add-cart" type="button" data-add-cart data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->price }}" {{ $quantity === 0 ? 'disabled' : '' }}>Agregar al carrito</button>
+                <button class="add-cart" type="button" data-add-cart data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->precio_venta_sugerido ?? $product->price }}" {{ $quantity === 0 ? 'disabled' : '' }}>Agregar al carrito</button>
             </div>
         </section>
         <section class="description">
@@ -102,7 +103,7 @@
         </section>
     </main>
     <script>
-        const cartKey = 'repuestoserp-cart';
+        const cartKey = 'repuestoserp-cart-company-{{ $company->id }}';
         const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
         const save = () => localStorage.setItem(cartKey, JSON.stringify(cart));
         document.querySelectorAll('[data-thumbnail]').forEach(button => button.addEventListener('click', () => {
